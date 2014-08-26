@@ -4,7 +4,6 @@
 #author : ning
 #date   : 2014-08-26 10:51:25
 
-
 import os
 import re
 import sys
@@ -48,27 +47,39 @@ class Mongo(pymongo.Connection):
 def main():
     parser= argparse.ArgumentParser()
 
-    parser.add_argument('-h', '--host')
-    parser.add_argument('-p', '--port')
-    parser.add_argument('-u', '--user', default = '')
-    parser.add_argument('-P', '--passwd', default = '')
+    parser.add_argument('--host', required = True)
+    parser.add_argument('--port', required = True)
+    parser.add_argument('--user', default = '')
+    parser.add_argument('--passwd', default = '')
+    parser.add_argument('--kill', action='store_true')
 
     args = parser.parse_args()
 
     conn = Mongo(args.host, args.port, args.user, args.passwd)
 
     currentOP = conn.admin["$cmd.sys.inprog"].find_one({'$all': True })
+
     currentOP = currentOP['inprog']
-
     for op in currentOP:
-        print op
+        if not op['active']:
+            continue
 
-def main():
-    """docstring for main"""
-    logging.debug(PWD)
+        if op['op'] not in ['query', 'getmore']:
+            continue
+
+        if 'secs_running' not in op:
+            continue
+
+        if op['secs_running'] < 10:
+            continue
+
+        if args.kill:
+            print 'kill: ', op
+            conn['admin']['$cmd.sys.killop'].find_one({'op': op['opid']})
+        else:
+            print op
 
 if __name__ == "__main__":
-    common.parse_args2(LOGPATH)
     main()
 
 
